@@ -1,0 +1,6 @@
+time (iso8601),apparent_temperature_max (°C),apparent_temperature_min (°C),precipitation_sum (inch),rain_sum (inch),snowfall_sum (inch),daylight_duration (s)
+2024-06-01,26,9.1,0,0,0,52061.84
+2024-06-02,28.1,16.8,0.13,0.13,0,52115.7
+2024-06-03,30.8,18.6,0.051,0.051,0,52167.07
+2024-06-04,33.7,20.5,0.031,0.031,0,52215.91
+2024-06-05,28.9,21.8,0.016,0.016,0,52262.17
