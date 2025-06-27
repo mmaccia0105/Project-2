@@ -60,6 +60,14 @@ daily_df <- as_tibble(daily_data)
 # Create a named vector for units with same names as daily_data columns
 units_vec <- unlist(daily_units)
 
+#convert daily duration to hours
+
+if ("daylight_duration" %in% names(daily_df)) {
+  daily_df <- daily_df |> 
+    mutate(daylight_duration = round(daylight_duration / 3600, 2))
+  units_vec["daylight_duration"] <- "hr"
+}
+
 # Now rename columns by appending units in parentheses, e.g. "temperature_max (°F)"
 names(daily_df) <- paste0(names(daily_df), " (", units_vec[names(daily_df)], ")")
 
@@ -67,11 +75,10 @@ weather_results <- as_tibble(daily_df)
 
 return(weather_results)
 
-
  }
 
 #using to test function()
-build_weather_data(
+results <- build_weather_data(
     latitude = 36.07,
     longitude = -79.79,
     start_date = "2024-06-01",
@@ -86,3 +93,4 @@ build_weather_data(
     temp_unit = "celsius",
     precip_unit = "mm")
 
+print(results)
