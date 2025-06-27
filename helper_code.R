@@ -41,7 +41,7 @@ build_weather_data <- function(
                 "start_date=", start_date, "&",
                 "end_date=", end_date, "&",
                 daily_entry,
-                "timezone=", timezone, "&",
+                "timezone=auto&",
                 "temperature_unit=", temp_unit, "&",
                 "precipitation_unit=", precip_unit, "&")
   
@@ -65,8 +65,8 @@ names(daily_df) <- paste0(names(daily_df), " (", units_vec[names(daily_df)], ")"
 
 weather_results <- as_tibble(daily_df)
 
-print(weather_results)
-write_csv(weather_results, "weather_data.csv")
+return(weather_results)
+
 
  }
 
@@ -84,5 +84,5 @@ build_weather_data(
               "daylight_duration"),
     timezone = "America/New_York",
     temp_unit = "celsius",
-    precip_unit = "inch")
+    precip_unit = "mm")
 
