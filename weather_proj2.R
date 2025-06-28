@@ -1,6 +1,5 @@
 #__________________________Packages to Load for APP_________________
 library(shiny)
-library(bslib)
 library(httr)
 library(jsonlite)
 library(tidyverse)
@@ -81,6 +80,8 @@ build_weather_data <- function(
       mutate(daylight_duration = round(daylight_duration / 3600, 2))
     units_vec["daylight_duration"] <- "hr"
   }
+  #converting time(iso8601) to date
+  names(daily_df)[1] <- "Date"
   
   # Now rename columns by appending units in parentheses, e.g. "temperature_max (°F)"
   names(daily_df) <- paste0(names(daily_df), " (", units_vec[names(daily_df)], ")")
@@ -164,8 +165,12 @@ ui <- fluidPage(
                 actionButton("get_data", "Get Weather Data")
               ),
               mainPanel(
-                h3("Returned Weather Data"),
-                dataTableOutput("weather_table")
+                h3(textOutput("target_location_header")),
+                
+                uiOutput("subset_weather"),
+                dataTableOutput("weather_table"),
+                downloadButton("download_weather",
+                               "Download Data")
                 
               )
             )),
@@ -191,12 +196,48 @@ server <- function(input, output) {
       precip_unit = input$precip_unit
     )
   })
-  
-  output$weather_table <- renderDataTable({
-    req(weather_data())
-    weather_data()
+  output$target_location_header <- renderText({
+    req(input$get_data)
+    req(input$target_location)
+    paste("Historical Weather Data for:", input$target_location)
   })
   
+  output$subset_weather <- renderUI({
+    req(weather_data())
+    checkboxGroupInput("subset_weather", "Select Columns to Display:",
+                        choices = names(weather_data()),
+                       selected = names(weather_data()))
+  })
+  
+  subset_weather_data <- reactive({
+    req(weather_data())
+    data <- weather_data()
+    
+    if (!is.null(input$subset_weather)) {
+      data <- data |> 
+        select(all_of(input$subset_weather))
+    }
+    
+   data
+  })
+  
+  
+  output$weather_table <- renderDataTable({
+    data <- subset_weather_data()
+    if (ncol(data) > 0) {
+      names(data)[1] <- "Date"
+    }
+    data
+  })
+  
+  output$download_weather <- downloadHandler(
+    filename = function(){
+      paste0("weather", input$start_date,"_to_", input$end_date,".csv")
+    },
+    content = function(file) {
+      write_csv(subset_weather_data(), file)
+    }
+  )
  
 }
 
