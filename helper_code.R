@@ -94,3 +94,23 @@ results <- build_weather_data(
     precip_unit = "mm")
 
 print(results)
+
+#Create nice labels for variables
+variable_labels <- c(
+  "Month" = "Month",
+  "Day" = "Day",
+  "Year" = "Year",
+  "apparent_temperature_max (°F)" = "Maximum Temperature",
+  "apparent_temperature_min (°F)" = "Minimum Temperature",
+  "apparent_temperature_max (°C)" = "Maximum Temperature",
+  "apparent_temperature_min (°C)" = "Minimum Temperature",
+  "precipitation_sum (inch)" = "Total Precipitation(in)",
+  "precipitation_sum (mm)" = "Total Precipitation(mm)",
+  "rain_sum (inch)" = "Total Rain(in)",
+  "rain_sum (mm)" = "Total Rain(mm)",
+  "snowfall_sum (inch)" = "Total Snowfall",
+  "snowfall_sum (inch)" = "Total Snowfall",
+  "daylight_duration (hr)" = "Daylight Hours",
+  "temp_category" = "Temperature Category",
+  "precip_category" = "Precipitation Category"
+)

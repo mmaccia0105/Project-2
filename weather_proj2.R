@@ -96,12 +96,50 @@ build_weather_data <- function(
   
 }
 
+#_________________Create a function to categorize temperature data______
+categorize_temperature <- function(temp, unit="fahrenheit") {
+  #converting to numeric
+  temp <- as.numeric(temp)
+  #define ranges for Fahrenheit first
+  if (unit == "fahrenheit") {
+    cut(temp,
+        breaks = c (-Inf, 32, 50, 65, 75, Inf),
+        labels = c("Very Cold", "Cold", "Chilly", "Warm", "Hot"),
+        right = FALSE)
+  } else {
+    #celsius 
+    cut(temp,
+        breaks = c (-Inf, 0, 10, 18, 24, Inf),
+        labels = c("Very Cold", "Cold", "Chilly", "Warm", "Hot"),
+        right = FALSE)
+  }
+  
+}
+
+#___________________Create a function to categorize precip sum_________
+categorize_precip <- function(precip, unit = "inch"){
+  precip <- as.numeric(precip)
+  #build similar to temp above
+  if (unit == "inch") {
+    cut(precip,
+        breaks = c(-Inf, 0.1, 0.5, 1, 2, Inf),
+        labels = c("None/Trace", "Light", "Moderate", "Heavy", "Very Heavy"),
+        right = FALSE)
+  } else {
+    #metric is in mm
+    cut(precip,
+        breaks = c(-Inf, 0.1, 0.5, 1, 2, Inf),
+        labels = c("None/Trace", "Light", "Moderate", "Heavy", "Very Heavy"),
+        right = FALSE)
+  }
+  
+}
 #___________________Build APP______________________________
 
 
 #___________________UI_____________________________________
 ui <- fluidPage(
-    theme = bs_theme(bootswatch = "sketchy"),
+    theme = bs_theme(bootswatch = "minty"),
     
     navset_pill(
       nav_panel("About this App", 
@@ -151,17 +189,34 @@ ui <- fluidPage(
                   
                   
                   h4("Exploring the Data Tab"),
-                  p("This tab will allow you to see various data outputs based on the input data.")
+                  p("This tab will allow you to see various data outputs based on the input data."),
+                  tags$ul(
+                    tags$li(
+                      strong("Contingency Table:"), 
+                    tags$ul(
+                      tags$li("User will be able to get frequency counts for various returned data. User can toggle between 
+                              different data points as desired.")
+                      )
+                    ),
+                    tags$li(
+                       strong("Summary Statisitics Table:"),
+                    tags$ul(
+                      tags$li("The user will be able to output the mean, median, minimum, and maximum for the various data 
+                              chosen. User will be able to toggle between different data points as desired.")
+                    )
+                    )),
+                     
                 ),
                 tags$img(
                   src = "weather_image.png",
                   alt = "Weather Image",
                   width = "400px"
-                ),
+                )
                 ),
                   
                 
       nav_panel("Data Download", 
+            #sidebar will have the input options for data retrieval
             sidebarLayout(
               sidebarPanel(
                 #Since need to use coordinates, will ask user to enter location so can use for outputs
@@ -221,18 +276,41 @@ ui <- fluidPage(
                 
               )
             )),
-      nav_panel("Exploring the Data", "Here we will have 4 outputs")
+      nav_panel("Exploring the Data",
+        #where user can choose the outputs
+        sidebarLayout(
+          sidebarPanel(
+            checkboxGroupInput("selected_vars", "Select Variable to Count:",
+                        choices = NULL),
+            #add an action button so user will tell app when ready to generate data
+            actionButton("get_contingency", "Get Selected Counts"),
+            #summary tables
+            selectInput("num_vars", "Select Numeric Variables to Summarize:",
+                        choices = NULL, multiple = TRUE),
+            checkboxGroupInput("group_vars", "Select Grouping Variables:",
+                        choices = NULL),
+            actionButton("get_summary", "Get Selected Statistics"),
+          ),
+          #main panel will have data outputs
+          mainPanel(
+            h3(textOutput("target_location_contingency")),
+            dataTableOutput("contingency_table"),
+            h3(textOutput("target_location_summary")),
+            dataTableOutput("summary_table")
+            
+          )
+        )
     )
-    
+    )
 )
 
 #_______________________SERVER_________________________________
-server <- function(input, output) {
-  #building the data from input, making it reactive
+server <- function(input, output, session) {
+  #_____building the data from input, making it reactive______
   weather_data <- eventReactive(input$get_data, {
     req(input$latitude, input$longitude, input$start_date, input$end_date, input$daily)
     
-    build_weather_data(
+   data <-  build_weather_data(
       latitude = input$latitude,
       longitude = input$longitude,
       start_date = input$start_date,
@@ -242,7 +320,53 @@ server <- function(input, output) {
       temp_unit = input$temp_unit,
       precip_unit = input$precip_unit
     )
-  })
+   #extracting out the columns for temp and precip sum to categorize
+   temp_max_col <- grep("^apparent_temperature_max.*", names(data), value = TRUE)
+   temp_min_col <- grep("^apparent_temperature_min.*", names(data), value = TRUE)
+   precip_col <- grep("^precipitation_sum.*", names(data), value = TRUE) 
+   
+   #categorizing the temp columns
+   if (length(temp_max_col) > 0) {
+     data$temp_category <- categorize_temperature(data[[temp_max_col]], input$temp_unit)
+   } else if (length(temp_min_col) > 0) {
+     data$temp_category <- categorize_temperature(data[[temp_min_col]], input$temp_unit)
+   } else {
+     data$temp_category <- NA
+   }
+   #categorizing the precip columns
+   if (length(precip_col) > 0) {
+     data$precip_category <- categorize_precip(data[[precip_col]], unit = input$precip_unit)
+   } else {
+     data$precip_category <- NA
+   }
+   # Find the date column name 
+   date_col <- names(data)[1]
+   
+   #get rid of date units
+   data$date_clean <- as.Date(data[[date_col]])
+   
+   #put year month day intodifferent columns
+   data$Year <- format(data$date_clean, "%Y")
+   data$Month <- format(data$date_clean, "%B")
+   data$Day <- format(data$date_clean, "%d")
+   
+   data$Month <- factor(data$Month, 
+                        levels = c("January", "February", "March", "April", "May", "June", 
+                                   "July", "August", "September", "October", "November", "December"),
+                        ordered = TRUE)
+   
+   #drop the original data column
+   data[[date_col]] <- NULL
+   data$date_clean <- NULL
+   
+   #reorder day to front
+   data <- data |> 
+     relocate(Month, Day, Year)
+   
+    return(data)
+ })
+
+
   #reactive output to the page for the data
   output$target_location_header <- renderText({
     req(input$get_data)
@@ -277,7 +401,7 @@ server <- function(input, output) {
     }
     data
   })
-  #download outout - will download to a csv file
+  #download output - will download to a csv file
   output$download_weather <- downloadHandler(
     filename = function(){
       paste0("weather", input$start_date,"_to_", input$end_date,".csv")
@@ -286,7 +410,108 @@ server <- function(input, output) {
       write_csv(subset_weather_data(), file)
     }
   )
+ #___build server information for contingency table________
+  observeEvent(weather_data(), {
+    data <- weather_data()
+    vars <- names(data)
+    #checking the variables are categorical before moving forward
+    cat_vars <- vars[sapply(weather_data(), function(col) is.factor(col) || is.character(col))]
+    #make checkbox based on available variables
+    updateCheckboxGroupInput(inputId = "selected_vars", choices = cat_vars)
+  })  
+  
+  #Contingency table output
+ contingency_table_data <- eventReactive(input$get_contingency, {
+    req(input$selected_vars)
+    data <- weather_data()
+    #selected for data that is categorical
+    selected_data_freq <- data[, input$selected_vars, drop = FALSE]
+    #making the freq table, do.call was needed since had a list of variables
+    freq_table <- as.data.frame(
+      do.call(table, c(as.list(selected_data_freq), useNA = "ifany"))
+    ) |>
+      filter(Freq > 0)
+    
+    return(freq_table)
+  })
  
+ # Render the contingency table only after button is clicked
+ output$contingency_table <- renderDataTable({
+   req(input$get_contingency > 0)
+   contingency_table_data()
+ })
+  
+ # Similarly for header text output, triggered by button
+ output$target_location_contingency <- renderText({
+   req(input$get_contingency > 0)
+   paste("Selected Counts for:", input$target_location)
+ })
+
+ 
+ #__________________Summary Table________________________ 
+  #reactive output to title the table
+  output$target_location_summary <- renderText({
+    req(input$get_summary > 0)
+    req(input$target_location)
+    paste("Selected Statistics for:", input$target_location)
+  })
+  
+  observeEvent(weather_data(), {
+    data <- weather_data()
+    
+    # Identify numeric variables for summarization
+    num_vars <- names(data)[sapply(data, is.numeric)]
+    
+    # Identify categorical variables for grouping
+    cat_vars <- names(data)[sapply(data, function(col) is.factor(col) || is.character(col))]
+    
+    # Update selectInput for numeric vars
+    updateSelectInput(session, "num_vars", choices = num_vars, selected = num_vars[1])
+    
+    # Update checkboxGroupInput for grouping vars
+    updateCheckboxGroupInput(session, "group_vars", choices = cat_vars)
+  })
+  summary_table <- eventReactive(input$get_summary, {
+    req(input$num_vars)
+    data <- weather_data()
+    
+    #return empty data frame to avoid errors
+    if (nrow(data) == 0) {
+      return(data.frame()) 
+    }
+    # If no grouping variables selected, do a simple summary over whole dataset
+    if (is.null(input$group_vars) || length(input$group_vars) == 0) {
+      summary_output <- data |>  
+        summarise(across(all_of(input$num_vars),
+                         list(
+                           mean = ~round(mean(.x, na.rm = TRUE), 2), 
+                           median = ~round(median(.x, na.rm = TRUE), 2), 
+                           min = ~round(min(.x, na.rm = TRUE), 2), 
+                           max = ~round(max(.x, na.rm = TRUE), 2)
+                           ))) 
+      return(summary_output)
+    } else {
+      # Group by selected grouping variables
+      summary_output <- data |> 
+        group_by(across(all_of(input$group_vars))) |> 
+        summarise(across(all_of(input$num_vars),
+                         list(
+                           mean = ~round(mean(.x, na.rm = TRUE), 2), 
+                           median = ~round(median(.x, na.rm = TRUE), 2), 
+                           min = ~round(min(.x, na.rm = TRUE), 2), 
+                           max = ~round(max(.x, na.rm = TRUE), 2)
+                           )),
+                          .groups = "drop") 
+           }
+  
+  return(summary_output)
+  
+  })
+  #output the summary table
+  output$summary_table <- renderDataTable({
+    req(input$get_summary>0)
+    datatable(summary_table())
+  })
 }
 
 #________________Run the APP___________________________________________
