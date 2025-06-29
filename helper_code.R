@@ -114,3 +114,13 @@ variable_labels <- c(
   "temp_category" = "Temperature Category",
   "precip_category" = "Precipitation Category"
 )
+
+#apply labels
+data <- data |> 
+  rename_with(~ data_labels[.x], .cols = names(data_labels))
+
+colnames(data) <- ifelse(
+  colnames(data) %in% names(data_labels),
+  data_labels[colnames(data)],
+  colnames(data)
+)

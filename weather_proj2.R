@@ -77,7 +77,7 @@ build_weather_data <- function(
   units_vec <- unlist(daily_units)
   
   #convert daily duration from seconds to hours
-    if ("daylight_duration" %in% names(daily_df)) {
+  if ("daylight_duration" %in% names(daily_df)) {
     daily_df <- daily_df |> 
       mutate(daylight_duration = round(daylight_duration / 3600, 2))
     units_vec["daylight_duration"] <- "hr"
@@ -139,169 +139,175 @@ categorize_precip <- function(precip, unit = "inch"){
 
 #___________________UI_____________________________________
 ui <- fluidPage(
-    theme = bs_theme(bootswatch = "minty"),
-    
-    navset_pill(
-      nav_panel("About this App", 
-                tagList(
-                  h2("Purpose of this App"),
-                  p("The purpose of this application is to explore some historical weather data. 
+  theme = bs_theme(bootswatch = "minty"),
+  
+  navset_pill(
+    nav_panel("About this App", 
+              tagList(
+                h2("Purpose of this App"),
+                p("The purpose of this application is to explore some historical weather data. 
        
                     Locations can be input to explore various factors associated with weather from 1940 to the present. 
                     Within the app, there will be multiple different options for the user to output data."),
-                  
-                  h2("Source of the Data"),
-                  p(HTML('This data comes from <a href="https://open-meteo.com/" target="_blank">Open-meteo</a>, 
+                
+                h2("Source of the Data"),
+                p(HTML('This data comes from <a href="https://open-meteo.com/" target="_blank">Open-meteo</a>, 
                   an open-source API that includes current, forecast, and historical weather data. 
                   This app focuses on historical data available from 1940 onwards. It’s a free API that does not require a 
                   key.')),
-                  
-                  h2("App Contents"),
-                  
-                  h4("About the App Tab"),
-                  p("This main tab has information to explain the purpose of this app."),
-                  
-                  h4("Data Download Tab"),
-                  p("This tab will allow you to input various parameters to access data from the API. The available inputs 
+                
+                h2("App Contents"),
+                
+                h4("About the App Tab"),
+                p("This main tab has information to explain the purpose of this app."),
+                
+                h4("Data Download Tab"),
+                p("This tab will allow you to input various parameters to access data from the API. The available inputs 
                     are:"),
-                  tags$ul(
-                    tags$li(strong("Location –"), " The latitude and longitude are required as inputs. Since the coordinates
+                tags$ul(
+                  tags$li(strong("Location –"), " The latitude and longitude are required as inputs. Since the coordinates
                             are not common knowledge, the coordinates for a target location can be found using online tools 
                             like", tags$a(href = "https://www.gps-coordinates.net/", "GPS Coordinates", target = "_blank"), 
-                            "."),
-                    tags$li(strong("Dates –"), ' The start and end date for historical data can be input. The required 
+                          "."),
+                  tags$li(strong("Dates –"), ' The start and end date for historical data can be input. The required 
                             format is "YYYY-MM-DD".'),
-                    tags$li(strong("Daily Weather Variables –"), " You can select any combination of the following:"),
-                    tags$ul(
-                      tags$li("Minimum Daily Temperature"),
-                      tags$li("Maximum Daily Temperature"),
-                      tags$li("Total Precipitation"),
-                      tags$li("Total Rainfall"),
-                      tags$li("Total Snowfall"),
-                      tags$li("Duration of Daylight")
-                    ),
-                    tags$li(strong("Temperature Units –"), " Fahrenheit and Celsius are options."),
-                    tags$li(strong("Precipitation Units –"), " Imperial or Metric are options.")
+                  tags$li(strong("Daily Weather Variables –"), " You can select any combination of the following:"),
+                  tags$ul(
+                    tags$li("Minimum Daily Temperature"),
+                    tags$li("Maximum Daily Temperature"),
+                    tags$li("Total Precipitation"),
+                    tags$li("Total Rainfall"),
+                    tags$li("Total Snowfall"),
+                    tags$li("Duration of Daylight")
                   ),
-                  p("After selected the desired outputs, data will be displayed. There are additional options to subset some
+                  tags$li(strong("Temperature Units –"), " Fahrenheit and Celsius are options."),
+                  tags$li(strong("Precipitation Units –"), " Imperial or Metric are options.")
+                ),
+                p("After selected the desired outputs, data will be displayed. There are additional options to subset some
                     of the chosen variables and adjust the number of rows display. Additionally, there is an option to 
                     download the data to a '.csv' file."),
-                  
-                  
-                  h4("Exploring the Data Tab"),
-                  p("This tab will allow you to see various data outputs based on the input data."),
-                  tags$ul(
-                    tags$li(
-                      strong("Contingency Table:"), 
+                
+                
+                h4("Exploring the Data Tab"),
+                p("This tab will allow you to see various data outputs based on the input data."),
+                tags$ul(
+                  tags$li(
+                    strong("Contingency Table:"), 
                     tags$ul(
                       tags$li("User will be able to get frequency counts for various returned data. User can toggle between 
                               different data points as desired.")
-                      )
-                    ),
-                    tags$li(
-                       strong("Summary Statisitics Table:"),
+                    )
+                  ),
+                  tags$li(
+                    strong("Summary Statisitics Table:"),
                     tags$ul(
                       tags$li("The user will be able to output the mean, median, minimum, and maximum for the various data 
                               chosen. User will be able to toggle between different data points as desired.")
                     )
-                    )),
-                     
-                ),
-                tags$img(
-                  src = "weather_image.png",
-                  alt = "Weather Image",
-                  width = "400px"
-                )
-                ),
-                  
+                  )),
                 
-      nav_panel("Data Download", 
-            #sidebar will have the input options for data retrieval
-            sidebarLayout(
-              sidebarPanel(
-                #Since need to use coordinates, will ask user to enter location so can use for outputs
-                textInput("target_location",
-                          "Target Location",
-                          value = "Enter Target Location"),
-                #Latitude and Longitude Inputs
-                numericInput("latitude",
-                             "Latitude:",
-                             min = -180, max = 180,
-                             value = 36.07),
-                numericInput("longitude",
-                             "Longitude:",
-                             min = -180, max = 180,
-                             value = -79.79),
-                #Date inputs
-                textInput("start_date", 
-                          "Start Date (yyyy-mm-dd):",
-                          value = "2025-01-01"),
-                textInput("end_date", 
-                          "End Date (yyyy-mm-dd):",
-                          value = "2025-04-01"),
-                #Add a multiple choice list to the available daily values
-                #rename them with easy to read labels
-                selectInput("daily", "Daily Values",
-                            choices = c("Maximum Temperature" = "apparent_temperature_max", 
-                                        "Minimum Temperature" = "apparent_temperature_min",
-                                        "Total Precepitation" = "precipitation_sum",
-                                        "Total Rain" = "rain_sum",
-                                        "Total Snowfall" = "snowfall_sum",
-                                        "Daylight Duration" = "daylight_duration"),
-                            selected = "apparent_temperature_max",
-                            multiple = TRUE),
-                #choose the units for temp
-                selectInput("temp_unit", "Temperature Unit",
-                            choices = c("Fahrenheit" = "fahrenheit",
-                                        "Celsius" = "celsius"),
-                            selected = "fahrenheit"),
-                #precip units - rain is mm, snow is cm, so will use metric and imperial 
-                selectInput("precip_unit", "Precipitation Unit",
-                            choices = c("Imperial" = "inch",
-                                        "Metric" = "mm"),
-                            selected = "inch"),
-                #add an action button so user will tell app when ready to generate data
-                actionButton("get_data", "Get Weather Data")
               ),
-                #main panel for data output, reactive text output based on user input
-              mainPanel(
-                h3(textOutput("target_location_header")),
-                #adding the weather output with subset options
-                #spinner below to indicate working on data
-                uiOutput("subset_weather"),
-                withSpinner(dataTableOutput("weather_table"), type = 5, color = "green"),
-                #adding a download button to output the data
-                downloadButton("download_weather",
-                               "Download Data")
-                
+              tags$img(
+                src = "weather_image.png",
+                alt = "Weather Image",
+                width = "400px"
               )
-            )),
-      nav_panel("Exploring the Data",
-        #where user can choose the outputs
-        sidebarLayout(
-          sidebarPanel(
-            checkboxGroupInput("selected_vars", "Select Variable to Count:",
-                        choices = NULL),
-            #add an action button so user will tell app when ready to generate data
-            actionButton("get_contingency", "Get Selected Counts"),
-            #summary tables
-            selectInput("num_vars", "Select Numeric Variables to Summarize:",
-                        choices = NULL, multiple = TRUE),
-            checkboxGroupInput("group_vars", "Select Grouping Variables:",
-                        choices = NULL),
-            actionButton("get_summary", "Get Selected Statistics"),
-          ),
-          #main panel will have data outputs
-          mainPanel(
-            h3(textOutput("target_location_contingency")),
-            dataTableOutput("contingency_table"),
-            h3(textOutput("target_location_summary")),
-            dataTableOutput("summary_table")
-            
-          )
-        )
+    ),
+    
+    
+    nav_panel("Data Download", 
+              #sidebar will have the input options for data retrieval
+              sidebarLayout(
+                sidebarPanel(
+                  #Since need to use coordinates, will ask user to enter location so can use for outputs
+                  textInput("target_location",
+                            "Target Location",
+                            value = "Enter Target Location"),
+                  #Latitude and Longitude Inputs
+                  numericInput("latitude",
+                               "Latitude:",
+                               min = -180, max = 180,
+                               value = 36.07),
+                  numericInput("longitude",
+                               "Longitude:",
+                               min = -180, max = 180,
+                               value = -79.79),
+                  #Date inputs
+                  textInput("start_date", 
+                            "Start Date (yyyy-mm-dd):",
+                            value = "2025-01-01"),
+                  textInput("end_date", 
+                            "End Date (yyyy-mm-dd):",
+                            value = "2025-04-01"),
+                  #Add a multiple choice list to the available daily values
+                  #rename them with easy to read labels
+                  selectInput("daily", "Daily Values",
+                              choices = c("Maximum Temperature" = "apparent_temperature_max", 
+                                          "Minimum Temperature" = "apparent_temperature_min",
+                                          "Total Precepitation" = "precipitation_sum",
+                                          "Total Rain" = "rain_sum",
+                                          "Total Snowfall" = "snowfall_sum",
+                                          "Daylight Duration" = "daylight_duration"),
+                              selected = "apparent_temperature_max",
+                              multiple = TRUE),
+                  #choose the units for temp
+                  selectInput("temp_unit", "Temperature Unit",
+                              choices = c("Fahrenheit" = "fahrenheit",
+                                          "Celsius" = "celsius"),
+                              selected = "fahrenheit"),
+                  #precip units - rain is mm, snow is cm, so will use metric and imperial 
+                  selectInput("precip_unit", "Precipitation Unit",
+                              choices = c("Imperial" = "inch",
+                                          "Metric" = "mm"),
+                              selected = "inch"),
+                  #add an action button so user will tell app when ready to generate data
+                  actionButton("get_data", "Get Weather Data")
+                ),
+                #main panel for data output, reactive text output based on user input
+                mainPanel(
+                  h3(textOutput("target_location_header")),
+                  #adding the weather output with subset options
+                  #spinner below to indicate working on data
+                  uiOutput("subset_weather"),
+                  withSpinner(dataTableOutput("weather_table"), type = 5, color = "green"),
+                  #adding a download button to output the data
+                  downloadButton("download_weather",
+                                 "Download Data")
+                  
+                )
+              )),
+    nav_panel("Exploring the Data",
+              #where user can choose the outputs
+              sidebarLayout(
+                sidebarPanel(
+                  checkboxGroupInput("selected_vars", "Select Variable to Count:",
+                                     choices = NULL),
+                  #add an action button so user will tell app when ready to generate data
+                  actionButton("get_contingency", "Get Selected Counts"),
+                  tags$hr(),
+                  #summary tables
+                  selectInput("num_vars", "Select Numeric Variables to Summarize:",
+                              choices = NULL, multiple = TRUE),
+                  checkboxGroupInput("group_vars", "Select Grouping Variables:",
+                                     choices = NULL),
+                  actionButton("get_summary", "Get Selected Statistics"),
+                  tags$hr(),
+                  #action button so histogram doesn't automatically appear or cause error without data
+                  actionButton("get_histogram", "Get Histogram for Temperature Categories"),
+                ),
+                #main panel will have data outputs
+                mainPanel(
+                  h1(textOutput("data_page_header")),
+                  h3(textOutput("target_location_contingency")),
+                  dataTableOutput("contingency_table"),
+                  h3(textOutput("target_location_summary")),
+                  dataTableOutput("summary_table"),
+                  h3(textOutput("target_location_histogram")),
+                  plotOutput("temp_cat_histogram")
+                )
+              )
     )
-    )
+  )
 )
 
 #_______________________SERVER_________________________________
@@ -310,7 +316,7 @@ server <- function(input, output, session) {
   weather_data <- eventReactive(input$get_data, {
     req(input$latitude, input$longitude, input$start_date, input$end_date, input$daily)
     
-   data <-  build_weather_data(
+    data <-  build_weather_data(
       latitude = input$latitude,
       longitude = input$longitude,
       start_date = input$start_date,
@@ -320,53 +326,63 @@ server <- function(input, output, session) {
       temp_unit = input$temp_unit,
       precip_unit = input$precip_unit
     )
-   #extracting out the columns for temp and precip sum to categorize
-   temp_max_col <- grep("^apparent_temperature_max.*", names(data), value = TRUE)
-   temp_min_col <- grep("^apparent_temperature_min.*", names(data), value = TRUE)
-   precip_col <- grep("^precipitation_sum.*", names(data), value = TRUE) 
+    #create vectors for the 2 type of variables we are going to categorize
+    temp_vars <- c("apparent_temperature_max", "apparent_temperature_min")
+    precip_vars <- c("precipitation_sum", "rain_sum", "snowfall_sum")
+    
+    #extracting out the columns for temp to categorize, if chosen as an input
+    if (any(temp_vars %in% input$daily)){
+    temp_max_col <- grep("^apparent_temperature_max.*", names(data), value = TRUE)
+    temp_min_col <- grep("^apparent_temperature_min.*", names(data), value = TRUE)
    
-   #categorizing the temp columns
-   if (length(temp_max_col) > 0) {
-     data$temp_category <- categorize_temperature(data[[temp_max_col]], input$temp_unit)
-   } else if (length(temp_min_col) > 0) {
-     data$temp_category <- categorize_temperature(data[[temp_min_col]], input$temp_unit)
-   } else {
-     data$temp_category <- NA
-   }
-   #categorizing the precip columns
-   if (length(precip_col) > 0) {
-     data$precip_category <- categorize_precip(data[[precip_col]], unit = input$precip_unit)
-   } else {
-     data$precip_category <- NA
-   }
-   # Find the date column name 
-   date_col <- names(data)[1]
-   
-   #get rid of date units
-   data$date_clean <- as.Date(data[[date_col]])
-   
-   #put year month day intodifferent columns
-   data$Year <- format(data$date_clean, "%Y")
-   data$Month <- format(data$date_clean, "%B")
-   data$Day <- format(data$date_clean, "%d")
-   
-   data$Month <- factor(data$Month, 
-                        levels = c("January", "February", "March", "April", "May", "June", 
-                                   "July", "August", "September", "October", "November", "December"),
-                        ordered = TRUE)
-   
-   #drop the original data column
-   data[[date_col]] <- NULL
-   data$date_clean <- NULL
-   
-   #reorder day to front
-   data <- data |> 
-     relocate(Month, Day, Year)
-   
+    #apply the categories for temp columns
+    if (length(temp_max_col) > 0) {
+      data$temp_category <- categorize_temperature(data[[temp_max_col]], input$temp_unit)
+    } else if (length(temp_min_col) > 0) {
+      data$temp_category <- categorize_temperature(data[[temp_min_col]], input$temp_unit)
+    } else {
+      data$temp_category <- NULL
+    }
+    }
+    #do the same for precipitation variables
+    if(any(precip_vars %in% input$daily)) {
+    #applying the categories for precip columns
+      precip_col <- grep("^precipitation_sum.*", names(data), value = TRUE) 
+    if (length(precip_col) > 0) {
+      data$precip_category <- categorize_precip(data[[precip_col]], unit = input$precip_unit)
+    } else {
+      data$precip_category <- NULL
+    }
+    }
+  
+    # Find the date column name 
+    date_col <- grep("^Date", names(data), value = TRUE)
+    
+    #get rid of date units
+    data$date_clean <- as.Date(data[[date_col]])
+    
+    #put year month day intodifferent columns
+    data$Year <- format(data$date_clean, "%Y")
+    data$Month <- format(data$date_clean, "%B")
+    data$Day <- format(data$date_clean, "%d")
+    
+    data$Month <- factor(data$Month, 
+                         levels = c("January", "February", "March", "April", "May", "June", 
+                                    "July", "August", "September", "October", "November", "December"),
+                         ordered = TRUE)
+    
+    #drop the original data column
+    data[[date_col]] <- NULL
+    data$date_clean <- NULL
+    
+    #reorder day to front
+    data <- data |> 
+      relocate(Month, Day, Year)
+    
     return(data)
- })
-
-
+  })
+  
+  
   #reactive output to the page for the data
   output$target_location_header <- renderText({
     req(input$get_data)
@@ -377,20 +393,20 @@ server <- function(input, output, session) {
   output$subset_weather <- renderUI({
     req(weather_data())
     checkboxGroupInput("subset_weather", "Select Columns to Display:",
-                        choices = names(weather_data()),
+                       choices = names(weather_data()),
                        selected = names(weather_data()))
   })
   #making the subset data reactive
   subset_weather_data <- reactive({
     req(weather_data())
     data <- weather_data()
-   #checking if anthing is checked to subset 
+    #checking if anthing is checked to subset 
     if (!is.null(input$subset_weather)) {
       data <- data |> 
         select(all_of(input$subset_weather))
     }
-   #return data
-   return(data)
+    #return data
+    return(data)
   })
   
   #adjusting the choices for subsetting - making sure data is an option
@@ -410,7 +426,13 @@ server <- function(input, output, session) {
       write_csv(subset_weather_data(), file)
     }
   )
- #___build server information for contingency table________
+  #________________Contingency table________
+  #Adding reactive header with location and dates
+  output$data_page_header <- renderText({
+    req(input$target_location)
+    paste("Data Outputs for", input$target_location, "from", input$start_date, "to", input$end_date)
+  })
+
   observeEvent(weather_data(), {
     data <- weather_data()
     vars <- names(data)
@@ -421,7 +443,7 @@ server <- function(input, output, session) {
   })  
   
   #Contingency table output
- contingency_table_data <- eventReactive(input$get_contingency, {
+  contingency_table_data <- eventReactive(input$get_contingency, {
     req(input$selected_vars)
     data <- weather_data()
     #selected for data that is categorical
@@ -434,21 +456,21 @@ server <- function(input, output, session) {
     
     return(freq_table)
   })
- 
- # Render the contingency table only after button is clicked
- output$contingency_table <- renderDataTable({
-   req(input$get_contingency > 0)
-   contingency_table_data()
- })
   
- # Similarly for header text output, triggered by button
- output$target_location_contingency <- renderText({
-   req(input$get_contingency > 0)
-   paste("Selected Counts for:", input$target_location)
- })
-
- 
- #__________________Summary Table________________________ 
+  # Render the contingency table only after button is clicked
+  output$contingency_table <- renderDataTable({
+    req(input$get_contingency > 0)
+    contingency_table_data()
+  })
+  
+  # Similarly for header text output, triggered by button
+  output$target_location_contingency <- renderText({
+    req(input$get_contingency > 0)
+    paste("Selected Counts for:", input$target_location)
+  })
+  
+  
+  #__________________Summary Table________________________ 
   #reactive output to title the table
   output$target_location_summary <- renderText({
     req(input$get_summary > 0)
@@ -488,7 +510,7 @@ server <- function(input, output, session) {
                            median = ~round(median(.x, na.rm = TRUE), 2), 
                            min = ~round(min(.x, na.rm = TRUE), 2), 
                            max = ~round(max(.x, na.rm = TRUE), 2)
-                           ))) 
+                         ))) 
       return(summary_output)
     } else {
       # Group by selected grouping variables
@@ -500,18 +522,40 @@ server <- function(input, output, session) {
                            median = ~round(median(.x, na.rm = TRUE), 2), 
                            min = ~round(min(.x, na.rm = TRUE), 2), 
                            max = ~round(max(.x, na.rm = TRUE), 2)
-                           )),
-                          .groups = "drop") 
-           }
-  
-  return(summary_output)
-  
+                         )),
+                  .groups = "drop") 
+    }
+    
+    return(summary_output)
+    
   })
   #output the summary table
   output$summary_table <- renderDataTable({
     req(input$get_summary>0)
     datatable(summary_table())
   })
+  
+#_______________Histogram_____________________________________
+
+  #add reactive title for histogram based on action button
+  output$target_location_histogram <- renderText({
+    req(input$get_histogram)
+    paste("Frequency of Temperature Categories")})
+  
+  
+  #histogram, require the data and the action button for histogram
+  output$temp_cat_histogram <- renderPlot({
+    req(input$get_histogram)
+    req(weather_data())
+    ggplot(weather_data(), aes(x = temp_category))+
+      geom_bar(fill = "#d68910", color = "#34495e") +
+      labs(
+        x = "Temperature Category",
+        y = "Frequency") +
+      theme(axis.text=element_text(size = 16),
+            axis.title=element_text(size = 20))
+  })
+  
 }
 
 #________________Run the APP___________________________________________
