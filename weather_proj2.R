@@ -222,7 +222,7 @@ ui <- fluidPage(
                   #Since need to use coordinates, will ask user to enter location so can use for outputs
                   textInput("target_location",
                             "Target Location",
-                            value = "Enter Target Location"),
+                            value = "Greensboro, NC (Enter Target Location)"),
                   #Latitude and Longitude Inputs
                   numericInput("latitude",
                                "Latitude:",
@@ -294,6 +294,21 @@ ui <- fluidPage(
                   tags$hr(),
                   #action button so histogram doesn't automatically appear or cause error without data
                   actionButton("get_histogram", "Get Histogram for Temperature Categories"),
+                  tags$hr(),
+                  #set up user choices for a scatter plot looking at temps vs precipitation
+                  selectInput("temp_scatter", "Temperature Variable:",
+                              choices = c("Max Temperature" = "apparent_temperature_max",
+                                          "Min Temperature" = "apparent_temperature_min"),
+                              selected = "apparent_temperature_max"),
+                  selectInput("precip_scatter", "Precipitatin Variable:",
+                              choices = c("Total Precipitation" = "precipitation_sum",
+                                          "Total Rain" = "rain_sum",
+                                          "Total Snow" = "snowfall_sum"),
+                              selected = "precipitation_sum"),
+                  selectInput("facet_by_scatter", "Facet By:",
+                              choices = c("Month", "Year"),
+                              selected = "Month"),
+                  actionButton("get_scatter", "Get Precipitation Scatter Plot")
                 ),
                 #main panel will have data outputs
                 mainPanel(
@@ -303,7 +318,8 @@ ui <- fluidPage(
                   h3(textOutput("target_location_summary")),
                   dataTableOutput("summary_table"),
                   h3(textOutput("target_location_histogram")),
-                  plotOutput("temp_cat_histogram")
+                  withSpinner(plotOutput("temp_cat_histogram"), type= 4, color = "green"),
+                  withSpinner(plotOutput("trend_scatter"), type= 4, color = "green")
                 )
               )
     )
@@ -370,6 +386,9 @@ server <- function(input, output, session) {
                          levels = c("January", "February", "March", "April", "May", "June", 
                                     "July", "August", "September", "October", "November", "December"),
                          ordered = TRUE)
+    
+    data$Day <- factor(data$Day, levels = sprintf("%02d", 1:31), ordered = TRUE)
+    data$Year <- factor(data$Year, ordered = FALSE)
     
     #drop the original data column
     data[[date_col]] <- NULL
@@ -540,22 +559,51 @@ server <- function(input, output, session) {
   #add reactive title for histogram based on action button
   output$target_location_histogram <- renderText({
     req(input$get_histogram)
-    paste("Frequency of Temperature Categories")})
+    paste("Number of Days in Each Temperature Category by Year")})
   
   
   #histogram, require the data and the action button for histogram
   output$temp_cat_histogram <- renderPlot({
     req(input$get_histogram)
     req(weather_data())
-    ggplot(weather_data(), aes(x = temp_category))+
-      geom_bar(fill = "#d68910", color = "#34495e") +
+    ggplot(weather_data(), aes(x = temp_category, fill = Year))+
+      geom_bar(position = "dodge") +
       labs(
         x = "Temperature Category",
-        y = "Frequency") +
+        y = "Frequency (n days)") +
       theme(axis.text=element_text(size = 16),
-            axis.title=element_text(size = 20))
+            axis.title=element_text(size = 20),
+            legend.text=element_text(size = 16),
+            legend.title=element_text(size = 20))
   })
+#_______________Scatter Plot______________________________________
+
+output$trend_scatter <- renderPlot({
+  #action button and data needed
+  req(input$get_scatter)
+  req(weather_data())
   
+  data <- weather_data()
+  #columns for temp choice
+  temp_col <- grep(paste0("^", input$temp_scatter, ".*"), names(data), value = TRUE)[1]
+  req(!is.null(temp_col))
+  #ensure correct columns based on precipitation choice
+  precip_col <- grep(paste0("^", input$precip_scatter, ".*"), names(data), value = TRUE)
+  req(length(precip_col) == 1)
+  
+  #create as symbol so can facet later
+  facet_var <- sym(input$facet_by_scatter)
+  
+  ggplot(data, aes(x = .data[[temp_col]], y = .data[[precip_col]])) +
+    geom_jitter(color = "red", alpha = 0.6) +
+    geom_smooth(method = "lm", se = FALSE, color = "green") +
+    #need to pull in the facet variable chosen - also allow the y axis to adjust based on input
+    facet_wrap(vars(!!facet_var), scales = "free_y") +
+    labs(
+      x = input$temp_scatter,
+      y = input$precip_scatter)
+      
+})
 }
 
 #________________Run the APP___________________________________________
