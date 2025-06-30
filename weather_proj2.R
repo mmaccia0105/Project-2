@@ -295,20 +295,33 @@ ui <- fluidPage(
                   #action button so histogram doesn't automatically appear or cause error without data
                   actionButton("get_histogram", "Get Histogram for Temperature Categories"),
                   tags$hr(),
-                  #set up user choices for a scatter plot looking at temps vs precipitation
+                  #set up user choices for a scatter plot looking at temps vs daylight duration
                   selectInput("temp_scatter", "Temperature Variable:",
                               choices = c("Max Temperature" = "apparent_temperature_max",
                                           "Min Temperature" = "apparent_temperature_min"),
                               selected = "apparent_temperature_max"),
-                  selectInput("precip_scatter", "Precipitatin Variable:",
-                              choices = c("Total Precipitation" = "precipitation_sum",
-                                          "Total Rain" = "rain_sum",
-                                          "Total Snow" = "snowfall_sum"),
-                              selected = "precipitation_sum"),
                   selectInput("facet_by_scatter", "Facet By:",
-                              choices = c("Month", "Year"),
-                              selected = "Month"),
-                  actionButton("get_scatter", "Get Precipitation Scatter Plot")
+                              choices = c("Quarter", "Year"),
+                              selected = "Quarter"),
+                  actionButton("get_scatter", "Get Precipitation Scatter Plot"),
+                  tags$hr(),
+                  checkboxGroupInput("line_temp_vars", "Select Temperature Variables to Plot:",
+                                     choices = c("Max Temperature" = "apparent_temperature_max",
+                                                 "Min Temperature" = "apparent_temperature_min"),
+                                     selected = "apparent_temperature_max"),
+                  checkboxGroupInput("line_precip_vars", "Select Precipitation Variables to Plot:",
+                                     choices = c("Total Precipitation" = "precipitation_sum",
+                                                 "Total Rain" = "rain_sum",
+                                                 "Total Snowfall" = "snowfall_sum"),
+                                     selected = NULL),
+                  actionButton("get_line_plot", "Plot Temperature & Precipitation Over Time"),
+                  tags$hr(),
+                  selectInput("heatmap_temp_choice", "Select Temperature to Display:",
+                              choices = c("Maximum Temperature" = "apparent_temperature_max",
+                                          "Minimum Temperature" = "apparent_temperature_min"),
+                              selected = "apparent_temperature_max"),
+                  actionButton("plot_heatmap", "Generate Heatmap")
+                  
                 ),
                 #main panel will have data outputs
                 mainPanel(
@@ -319,7 +332,12 @@ ui <- fluidPage(
                   dataTableOutput("summary_table"),
                   h3(textOutput("target_location_histogram")),
                   withSpinner(plotOutput("temp_cat_histogram"), type= 4, color = "green"),
-                  withSpinner(plotOutput("trend_scatter"), type= 4, color = "green")
+                  h3(textOutput("target_location_scatter")),
+                  withSpinner(plotOutput("trend_scatter"), type= 4, color = "green"),
+                  h3(textOutput("target_location_line")),
+                  withSpinner(plotOutput("line_plot"), type= 4, color = "green"),
+                  h3(textOutput("heatmap_header")),
+                  withSpinner(plotOutput("temp_heatmap"), type = 4, color = "blue"),
                 )
               )
     )
@@ -578,33 +596,165 @@ server <- function(input, output, session) {
   })
 #_______________Scatter Plot______________________________________
 
+#add reactive title for scatter based on action button
+output$target_location_scatter <- renderText({
+    req(input$get_scatter >0)
+    paste("Temperature Trends Based on Daylight Duration")})
+
 output$trend_scatter <- renderPlot({
   #action button and data needed
-  req(input$get_scatter)
+  req(input$get_scatter >0)
   req(weather_data())
+  
   
   data <- weather_data()
   #columns for temp choice
   temp_col <- grep(paste0("^", input$temp_scatter, ".*"), names(data), value = TRUE)[1]
   req(!is.null(temp_col))
-  #ensure correct columns based on precipitation choice
-  precip_col <- grep(paste0("^", input$precip_scatter, ".*"), names(data), value = TRUE)
-  req(length(precip_col) == 1)
+  #column for daylight duration
+  daylight_col <- grep("^daylight_duration.*", names(data), value = TRUE)[1]
+  req(!is.null(daylight_col))
   
-  #create as symbol so can facet later
-  facet_var <- sym(input$facet_by_scatter)
+  #create quarters based on month
+  data$Quarter <- factor(quarters(as.Date(paste(data$Year, match(data$Month, month.name), "15", sep = "-"))),
+                         levels = c("Q1", "Q2", "Q3", "Q4"))
   
-  ggplot(data, aes(x = .data[[temp_col]], y = .data[[precip_col]])) +
+  #select facet variable
+  facet_var <- if (input$facet_by_scatter == "Year") {
+    sym("Year")
+  } else {
+    sym("Quarter")
+  }
+  #make dynamic labels
+  x_label <- if (input$temp_scatter == "apparent_temperature_max") {
+    "Max Temperature"
+  } else {
+    "Min Temperature"
+  }
+  
+  unit_label <- if (input$temp_unit == "fahrenheit") {
+    " (°F)"
+  } else {
+    " (°C)"
+  }
+  
+  ggplot(data, aes(x = .data[[temp_col]], y = .data[[daylight_col]])) +
     geom_jitter(color = "red", alpha = 0.6) +
     geom_smooth(method = "lm", se = FALSE, color = "green") +
-    #need to pull in the facet variable chosen - also allow the y axis to adjust based on input
-    facet_wrap(vars(!!facet_var), scales = "free_y") +
+    #need to pull in the facet variable chosen 
+    facet_wrap(vars(!!facet_var))+
     labs(
-      x = input$temp_scatter,
-      y = input$precip_scatter)
+      x = paste0(x_label, unit_label),
+      y = "Daylight Duration (hr)") +
+    theme(axis.text=element_text(size = 16),
+          axis.title=element_text(size = 20), 
+          strip.text = element_text(size = 16))
       
 })
-}
 
+#_____________________LINE PLOT____________________________
+#add reactive title for line based on action button
+output$target_location_line <- renderText({
+  req(input$get_line_plot)
+  paste("Temperature and Precipitation Trends Over Time")})
+
+output$line_plot <- renderPlot({
+  req(input$get_line_plot >0)
+  req(weather_data())
+  
+  data <- weather_data()
+  
+  # Reconstruct a Date column from Year, Month, Day
+  # Convert Month name to month number
+  month_num <- match(data$Month, month.name)
+  
+  # Create a Date vector
+  data$date_clean <- as.Date(
+    paste(data$Year, month_num, as.character(data$Day), sep = "-"),
+    format = "%Y-%m-%d"
+  )
+  
+  # Prepare variables selected by user
+  temp_vars <- input$line_temp_vars
+  precip_vars <- input$line_precip_vars
+  
+  #finding the columns in the data
+  selected_cols <- c()
+  for (v in temp_vars) {
+    colname <- grep(paste0("^", v, ".*"), names(data), value = TRUE)
+    selected_cols <- c(selected_cols, colname)
+  }
+  for (v in precip_vars) {
+    colname <- grep(paste0("^", v, ".*"), names(data), value = TRUE)
+    selected_cols <- c(selected_cols, colname)
+  }
+  
+  req(length(selected_cols) > 0)
+  
+  #getting data
+  plot_data <- data |> 
+    select(date_clean, all_of(selected_cols)) |> 
+    pivot_longer(cols = -date_clean, names_to = "Variable", values_to = "Value")
+  
+  #plot
+  
+  ggplot(plot_data, aes(x = date_clean, y = Value, color = Variable)) +
+    geom_line(linewidth = 1) +
+    labs(
+      x = "Date",
+      y = "Value",
+      color = "Variable",
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text = element_text(size = 14),
+      axis.title = element_text(size = 16),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12)) 
+})
+
+#___________________Heat Map__________________________________________
+#make reactive title for heat map
+output$heatmap_header <- renderText({
+  req(input$plot_heatmap > 0)  
+  paste("Average Temperature Heatmap by Year and Month")
+})
+#get data for heat map
+heatmap_data <- eventReactive(input$plot_heatmap, {
+  req(weather_data())
+  req(input$heatmap_temp_choice)
+  
+  data <- weather_data()
+  #get the temp columns 
+  temp_col <- grep(paste0("^", input$heatmap_temp_choice, ".*"), names(data), value = TRUE)[1]
+  req(temp_col)
+  #calculating the mean temp
+  avg_temp <- data |> 
+    group_by(Year, Month) |> 
+    summarise(AvgTemp = mean(.data[[temp_col]], na.rm = TRUE), .groups = "drop") 
+    
+  #creating the column for ave temp for month
+  avg_temp$Month <- factor(avg_temp$Month, levels = month.name, ordered = TRUE)
+  
+  avg_temp
+})
+#reactive heat map
+output$temp_heatmap <- renderPlot({
+  req(heatmap_data())
+  avg_temp <- heatmap_data()
+  
+  ggplot(avg_temp, aes(x = Month, y = Year, fill = AvgTemp)) +
+    geom_tile(color = "white") +
+    scale_fill_viridis_c(option = "plasma", name = "Avg Temp") +
+    labs(x = "Month",
+         y = "Year") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+          axis.text.y = element_text(size = 16),
+          axis.text=element_text(size = 16),
+          axis.title=element_text(size = 20))
+})
+
+}
 #________________Run the APP___________________________________________
 shinyApp(ui = ui, server = server)
