@@ -171,20 +171,23 @@ ui <- fluidPage(
                           "."),
                   tags$li(strong("Dates –"), ' The start and end date for historical data can be input. The required 
                             format is "YYYY-MM-DD".'),
-                  tags$li(strong("Daily Weather Variables –"), " You can select any combination of the following:"),
-                  tags$ul(
-                    tags$li("Minimum Daily Temperature"),
-                    tags$li("Maximum Daily Temperature"),
-                    tags$li("Total Precipitation"),
-                    tags$li("Total Rainfall"),
-                    tags$li("Total Snowfall"),
-                    tags$li("Duration of Daylight")
+                  tags$li(
+                    strong("Daily Weather Variables –"), 
+                    " You can select any combination of the following:",
+                    tags$ul(
+                      tags$li("Minimum Daily Temperature"),
+                      tags$li("Maximum Daily Temperature"),
+                      tags$li("Total Precipitation"),
+                      tags$li("Total Rainfall"),
+                      tags$li("Total Snowfall"),
+                      tags$li("Duration of Daylight")
+                    )
                   ),
                   tags$li(strong("Temperature Units –"), " Fahrenheit and Celsius are options."),
                   tags$li(strong("Precipitation Units –"), " Imperial or Metric are options.")
                 ),
-                p("After selected the desired outputs, data will be displayed. There are additional options to subset some
-                    of the chosen variables and adjust the number of rows display. Additionally, there is an option to 
+                p("After selecting the desired variables, the data will be displayed. There are additional options to subset
+                some of the chosen variables and adjust the number of rows display. Additionally, there is an option to 
                     download the data to a '.csv' file."),
                 
                 
@@ -199,20 +202,50 @@ ui <- fluidPage(
                     )
                   ),
                   tags$li(
-                    strong("Summary Statisitics Table:"),
+                    strong("Summary Statistics Table:"),
                     tags$ul(
                       tags$li("The user will be able to output the mean, median, minimum, and maximum for the various data 
                               chosen. User will be able to toggle between different data points as desired.")
                     )
-                  )),
-                
+                  ),
+                  tags$li(
+                    strong("Histogram:"),
+                    tags$ul(
+                      tags$li("Will show the number of days in each temperature category by year."),
+                      tags$li(
+                        tagList(
+                          "The categories are broken down as follows:",
+                          tags$ul(
+                            tags$li("Very Cold (< 32°F, < 0°C)"),
+                            tags$li("Cold (32 - 49°F / 0 - 10°C)"),
+                            tags$li("Chilly (50 - 64°F / 10 - 18°C)"),
+                            tags$li("Warm (65 - 74°F / 18 - 23°C)"),
+                            tags$li("Hot (> 75°F / > 24°C)")
+                          )
+                        )
+                      )
+                    )
+                  ),
+                  tags$li(
+                    strong("Scatter Plot:"),
+                    tags$ul(
+                      tags$li("Available to plot the minimum or maximum daily temperature (chosen by user)."),
+                      tags$li("A linear model best fit line is added to the graph."),
+                      tags$li("The graphs are able to be faceted by year or quarter.")
+                )
               ),
+                  tags$li(
+                    strong("Heat Map:"),
+                    tags$ul(
+                      tags$li("Available to plot the minimum or maximum daily temperature by month.")
+                    )
+                  ),
               tags$img(
                 src = "weather_image.png",
                 alt = "Weather Image",
                 width = "400px"
               )
-    ),
+    ))),
     
     
     nav_panel("Data Download", 
@@ -294,6 +327,8 @@ ui <- fluidPage(
                   tags$hr(),
                   #action button so histogram doesn't automatically appear or cause error without data
                   actionButton("get_histogram", "Get Histogram for Temperature Categories"),
+                  div(em("Must have selected Min Temperature or Max Temperature on Data Download Tab"), 
+                    style = "text-align: center; margin-top: 5px; margin-bottom: 10px; font-size: 12px;"),
                   tags$hr(),
                   #set up user choices for a scatter plot looking at temps vs daylight duration
                   selectInput("temp_scatter", "Temperature Variable:",
@@ -303,7 +338,9 @@ ui <- fluidPage(
                   selectInput("facet_by_scatter", "Facet By:",
                               choices = c("Quarter", "Year"),
                               selected = "Quarter"),
-                  actionButton("get_scatter", "Get Precipitation Scatter Plot"),
+                  actionButton("get_scatter", "Get Scatter Plot"),
+                  div(em("Must have selected Min Temperature or Max Temperature on Data Download Tab"), 
+                    style = "text-align:center; margin-top: 5px; margin-bottom: 10px; font-size: 12px;"),
                   tags$hr(),
                   checkboxGroupInput("line_temp_vars", "Select Temperature Variables to Plot:",
                                      choices = c("Max Temperature" = "apparent_temperature_max",
@@ -315,12 +352,17 @@ ui <- fluidPage(
                                                  "Total Snowfall" = "snowfall_sum"),
                                      selected = NULL),
                   actionButton("get_line_plot", "Plot Temperature & Precipitation Over Time"),
+                  div(em("Must have selected a temperature or precipitation variable on Data Download Tab"), 
+                    style = "text-align: center; margin-top: 5px; margin-bottom: 10px; font-size: 12px;"),
                   tags$hr(),
                   selectInput("heatmap_temp_choice", "Select Temperature to Display:",
                               choices = c("Maximum Temperature" = "apparent_temperature_max",
                                           "Minimum Temperature" = "apparent_temperature_min"),
                               selected = "apparent_temperature_max"),
-                  actionButton("plot_heatmap", "Generate Heatmap")
+  
+                  actionButton("plot_heatmap", "Generate Heatmap"),
+                  div(em("Must have selected a temperature or precipitation variable on Data Download Tab"), 
+                    style = "text-align: center; margin-top: 5px; margin-bottom: 10px; font-size: 12px;"),
                   
                 ),
                 #main panel will have data outputs
@@ -337,12 +379,10 @@ ui <- fluidPage(
                   h3(textOutput("target_location_line")),
                   withSpinner(plotOutput("line_plot"), type= 4, color = "green"),
                   h3(textOutput("heatmap_header")),
-                  withSpinner(plotOutput("temp_heatmap"), type = 4, color = "blue"),
+                  withSpinner(plotOutput("temp_heatmap"), type = 4, color = "blue")
                 )
               )
-    )
-  )
-)
+    )))
 
 #_______________________SERVER_________________________________
 server <- function(input, output, session) {
@@ -701,7 +741,7 @@ output$line_plot <- renderPlot({
     labs(
       x = "Date",
       y = "Value",
-      color = "Variable",
+      color = "Variable"
     ) +
     theme_minimal() +
     theme(
