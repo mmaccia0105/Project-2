@@ -15,17 +15,17 @@ build_weather_data <- function(
     longitude,
     start_date,
     end_date,
-    #combining multiple weather data that is availabe
+    #combining multiple weather data that is available. Using the daily options on site
     daily = c("apparent_temperature_max", 
               "apparent_temperature_min",
               "precipitation_sum",
               "rain_sum",
               "snowfall_sum",
               "daylight_duration"),
-    #timezone is default, doesn't affect output so defaulting to the below
+    #timezone is default, doesn't affect output so defaulting to the below - will hide from user input later
     timezone = "America/New_York",
-    temp_unit = "fahrenheit",
-    precip_unit = "inch")
+    temp_unit = "fahrenheit", #default to this
+    precip_unit = "inch") #default to inch
 {
   
   #URL to get API
@@ -33,15 +33,18 @@ build_weather_data <- function(
   
   #checking the data to makes sure data is correct format
   is_valid_date <- function (dates){
+    #use grepl to match the pattern
+    #pattern is ^(start) \\d{4} 4 digit year, then - separate, 2 digit month and then 2 digit day. End pattern$
     grepl("^\\d{4}-\\d{2}-\\d{2}$", dates)
   }
+  #checking that dates are in correct format - add a warning if not
   if (!is_valid_date(start_date)){
     stop("start_date must be in 'yyyy-mm-dd' format")
   }
   if (!is_valid_date(end_date)){
     stop("end_date must be in 'yyyy-mm-dd' format")
   }
-  #using paste to allow for the multiple inputs of the daily argument
+  #using paste to allow for the multiple inputs of the daily argument. each is separated by & so remove comma 
   daily_entry <- paste0("daily=", paste(daily, collapse = ","), "&")
   
   #taking the timezone and converting it to HTML format
@@ -140,7 +143,7 @@ categorize_precip <- function(precip, unit = "inch"){
 #___________________UI_____________________________________
 ui <- fluidPage(
   theme = bs_theme(bootswatch = "minty"),
-  
+  #create a page with multiple panels
   navset_pill(
     nav_panel("About this App", 
               tagList(
@@ -253,9 +256,10 @@ ui <- fluidPage(
               sidebarLayout(
                 sidebarPanel(
                   #Since need to use coordinates, will ask user to enter location so can use for outputs
+                  #link to example place on initial page
                   textInput("target_location",
                             "Target Location",
-                            value = "Greensboro, NC (Enter Target Location)"),
+                            value = "Greensboro, NC (Enter Target Location)"), #default to greensboro
                   #Latitude and Longitude Inputs
                   numericInput("latitude",
                                "Latitude:",
@@ -327,6 +331,7 @@ ui <- fluidPage(
                   tags$hr(),
                   #action button so histogram doesn't automatically appear or cause error without data
                   actionButton("get_histogram", "Get Histogram for Temperature Categories"),
+                  #will add comments throughout so user can select correct variables to display graphs
                   div(em("Must have selected Min Temperature or Max Temperature on Data Download Tab"), 
                     style = "text-align: center; margin-top: 5px; margin-bottom: 10px; font-size: 12px;"),
                   tags$hr(),
@@ -387,15 +392,17 @@ ui <- fluidPage(
 #_______________________SERVER_________________________________
 server <- function(input, output, session) {
   #_____building the data from input, making it reactive______
+  #action button to get data - setting some options that are reqired
   weather_data <- eventReactive(input$get_data, {
     req(input$latitude, input$longitude, input$start_date, input$end_date, input$daily)
-    
+    #using the function creating where inputs go
     data <-  build_weather_data(
       latitude = input$latitude,
       longitude = input$longitude,
       start_date = input$start_date,
       end_date = input$end_date,
       daily = input$daily,
+      #since doesn't really affect output will default to NY timezone
       timezone = "America/New_York",
       temp_unit = input$temp_unit,
       precip_unit = input$precip_unit
@@ -404,6 +411,7 @@ server <- function(input, output, session) {
     temp_vars <- c("apparent_temperature_max", "apparent_temperature_min")
     
     #extracting out the columns for temp to categorize, if chosen as an input
+    #this will be used later to categorize
     if (any(temp_vars %in% input$daily)){
     temp_max_col <- grep("^apparent_temperature_max.*", names(data), value = TRUE)
     temp_min_col <- grep("^apparent_temperature_min.*", names(data), value = TRUE)
@@ -419,7 +427,7 @@ server <- function(input, output, session) {
     }
     #do the same for precipitation sum but not for rainfall/snowfall totals
     if ("precipitation_sum" %in% input$daily) {
-      precip_col <- grep("^precipitation_sum.*", names(data), value = TRUE) 
+      precip_col <- grep("^precipitation_sum.*", names(data), value = TRUE) #find the precip sum column if chosen
       if (length(precip_col) > 0) {
         data$precip_category <- categorize_precip(data[[precip_col]], unit = input$precip_unit)
       } else {
@@ -430,19 +438,19 @@ server <- function(input, output, session) {
     # Find the date column name 
     date_col <- grep("^Date", names(data), value = TRUE)
     
-    #get rid of date units
+    #ensuring the date column is in date format
     data$date_clean <- as.Date(data[[date_col]])
     
-    #put year month day intodifferent columns
-    data$Year <- format(data$date_clean, "%Y")
-    data$Month <- format(data$date_clean, "%B")
-    data$Day <- format(data$date_clean, "%d")
-    #make the dates factors
+    #put year month day into different columns, indicate the format
+    data$Year <- format(data$date_clean, "%Y") #4 digit year
+    data$Month <- format(data$date_clean, "%B") #full month name
+    data$Day <- format(data$date_clean, "%d") #2 digit day
+    #make the dates factors to allow for betting sorting after data is output
     data$Month <- factor(data$Month, 
                          levels = c("January", "February", "March", "April", "May", "June", 
                                     "July", "August", "September", "October", "November", "December"),
                          ordered = TRUE)
-    
+    #ordering the day factor in calendar order
     data$Day <- factor(data$Day, levels = sprintf("%02d", 1:31), ordered = TRUE)
     data$Year <- factor(data$Year, ordered = FALSE)
     
@@ -450,7 +458,7 @@ server <- function(input, output, session) {
     data[[date_col]] <- NULL
     data$date_clean <- NULL
     
-    #reorder date to front
+    #relocate date to front
     data <- data |> 
       relocate(Month, Day, Year)
     
@@ -458,13 +466,13 @@ server <- function(input, output, session) {
   })
   
   
-  #reactive output to the page for the data
+  #reactive output to the page for the data, trying to make reactie header based on location chosen
   output$target_location_header <- renderText({
     req(input$get_data)
     req(input$target_location)
     paste("Historical Weather Data for:", input$target_location)
   })
-  #allowing for reactive subsetting of data after it generates
+  #allowing for reactive sub-setting of data after it generates
   output$subset_weather <- renderUI({
     req(weather_data())
     checkboxGroupInput("subset_weather", "Select Columns to Display:",
@@ -475,7 +483,7 @@ server <- function(input, output, session) {
   subset_weather_data <- reactive({
     req(weather_data())
     data <- weather_data()
-    #checking if anthing is checked to subset 
+    #checking if anything is checked to subset 
     if (!is.null(input$subset_weather)) {
       data <- data |> 
         select(all_of(input$subset_weather))
@@ -484,7 +492,7 @@ server <- function(input, output, session) {
     return(data)
   })
   
-  #adjusting the choices for subsetting - making sure data is an option
+  #adjusting the choices for sub-setting - making sure date is an option
   output$weather_table <- renderDataTable({
     data <- subset_weather_data()
     if (ncol(data) > 0) {
@@ -502,7 +510,7 @@ server <- function(input, output, session) {
     }
   )
   #________________Contingency table________
-  #Adding reactive header with location and dates
+  #Adding reactive header with location and dates to the output page
   output$data_page_header <- renderText({
     req(input$target_location)
     paste("Data Outputs for", input$target_location, "from", input$start_date, "to", input$end_date)
@@ -511,7 +519,7 @@ server <- function(input, output, session) {
   observeEvent(weather_data(), {
     data <- weather_data()
     vars <- names(data)
-    #checking the variables are categorical before moving forward
+    #checking the variables are factor or character before moving forward
     cat_vars <- vars[sapply(weather_data(), function(col) is.factor(col) || is.character(col))]
     #make checkbox based on available variables
     updateCheckboxGroupInput(inputId = "selected_vars", choices = cat_vars)
@@ -521,7 +529,7 @@ server <- function(input, output, session) {
   contingency_table_data <- eventReactive(input$get_contingency, {
     req(input$selected_vars)
     data <- weather_data()
-    #selected for data that is categorical
+    #selected for data 
     selected_data_freq <- data[, input$selected_vars, drop = FALSE]
     #making the freq table, do.call was needed since had a list of variables
     freq_table <- as.data.frame(
@@ -581,7 +589,7 @@ server <- function(input, output, session) {
       summary_output <- data |>  
         summarise(across(all_of(input$num_vars),
                          list(
-                           mean = ~round(mean(.x, na.rm = TRUE), 2), 
+                           mean = ~round(mean(.x, na.rm = TRUE), 2), #round all to 2 decimals
                            median = ~round(median(.x, na.rm = TRUE), 2), 
                            min = ~round(min(.x, na.rm = TRUE), 2), 
                            max = ~round(max(.x, na.rm = TRUE), 2)
@@ -663,23 +671,24 @@ output$trend_scatter <- renderPlot({
   } else {
     sym("Quarter")
   }
-  #make dynamic labels
+  #make dynamic labels, either min or max
   x_label <- if (input$temp_scatter == "apparent_temperature_max") {
     "Max Temperature"
   } else {
     "Min Temperature"
   }
-  
+  #same for degree units
   unit_label <- if (input$temp_unit == "fahrenheit") {
     " (°F)"
   } else {
     " (°C)"
   }
-  
+  #scatter plot of chosen temp column vs daylight duration
   ggplot(data, aes(x = .data[[temp_col]], y = .data[[daylight_col]])) +
     geom_jitter(color = "red", alpha = 0.6) +
     geom_smooth(method = "lm", se = FALSE, color = "green") +
     #need to pull in the facet variable chosen 
+    #use the !! so it acts as a variable 
     facet_wrap(vars(!!facet_var))+
     labs(
       x = paste0(x_label, unit_label),
@@ -716,7 +725,7 @@ output$line_plot <- renderPlot({
   temp_vars <- input$line_temp_vars
   precip_vars <- input$line_precip_vars
   
-  #finding the columns in the datam loop through them
+  #finding the columns in the data loop through them, put into 1 vector to be able to plot data
   selected_cols <- c()
   for (i in temp_vars) {
     colname <- grep(paste0("^", i, ".*"), names(data), value = TRUE)
@@ -729,9 +738,10 @@ output$line_plot <- renderPlot({
   
   req(length(selected_cols) > 0)
   
-  #getting data
+  #getting data into wide format
   plot_data <- data |> 
     select(date_clean, all_of(selected_cols)) |> 
+    #pivot all columns except the cleaned date column
     pivot_longer(cols = -date_clean, names_to = "Variable", values_to = "Value")
   
   #plot
@@ -766,12 +776,12 @@ heatmap_data <- eventReactive(input$plot_heatmap, {
   #get the temp columns 
   temp_col <- grep(paste0("^", input$heatmap_temp_choice, ".*"), names(data), value = TRUE)[1]
   req(temp_col)
-  #calculating the mean temp
+  #calculating the mean temp by year and month
   avg_temp <- data |> 
     group_by(Year, Month) |> 
     summarise(AvgTemp = mean(.data[[temp_col]], na.rm = TRUE), .groups = "drop") 
     
-  #creating the column for ave temp for month
+  #creating the column for avg temp for month into a factor for correct ordering
   avg_temp$Month <- factor(avg_temp$Month, levels = month.name, ordered = TRUE)
   
   avg_temp
