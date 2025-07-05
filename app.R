@@ -142,7 +142,7 @@ categorize_precip <- function(precip, unit = "inch"){
 
 #___________________UI_____________________________________
 ui <- fluidPage(
-  theme = bs_theme(bootswatch = "minty"),
+  theme = bs_theme(bootswatch = "vapor"),
   #create a page with multiple panels
   navset_pill(
     nav_panel("About this App", 
@@ -344,7 +344,8 @@ ui <- fluidPage(
                               choices = c("Quarter", "Year"),
                               selected = "Quarter"),
                   actionButton("get_scatter", "Get Scatter Plot"),
-                  div(em("Must have selected Min Temperature or Max Temperature on Data Download Tab"), 
+                  div(em("Must have selected Min Temperature or Max Temperature and Daylight Duration
+                         on Data Download Tab"), 
                     style = "text-align:center; margin-top: 5px; margin-bottom: 10px; font-size: 12px;"),
                   tags$hr(),
                   checkboxGroupInput("line_temp_vars", "Select Temperature Variables to Plot:",
